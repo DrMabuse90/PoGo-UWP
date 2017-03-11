@@ -29,6 +29,24 @@
                 BeginTime="0:0:5"
                 Duration="0:0:0.2" />
         </Storyboard>
+
+        <Storyboard x:Name="ShowSelectAttackTeamGridStoryboard">
+            <FadeInThemeAnimation Storyboard.TargetName="SelectAttackTeamGrid"/>
+            <DoubleAnimation x:Name="ShowAttackTeamGridAnimation"
+                Storyboard.TargetName="SelectAttackTeamGridTransform"
+                Storyboard.TargetProperty="TranslateY"
+                To="0"
+                Duration="0:0:0.2"/>
+        </Storyboard>
+
+        <Storyboard x:Name="HideSelectAttackTeamGridStoryboard">
+            <FadeOutThemeAnimation Storyboard.TargetName="SelectAttackTeamGrid"/>
+            <DoubleAnimation x:Name="HideAttackTeamGridAnimation"
+                Storyboard.TargetName="SelectAttackTeamGridTransform"
+                Storyboard.TargetProperty="TranslateY"
+                To="200"
+                Duration="0:0:0.2"/>
+        </Storyboard>
     </Page.Resources>
 
     <Grid x:Name="GymUI">
@@ -119,7 +137,7 @@
                     Width="80" Height="80" Grid.Column="0" 
                     Command="{Binding DeployPokemonCommand}"
                     Visibility="{Binding DeployPokemonCommandVisibility}"
-                    IsEnabled="{Binding CommandButtonEnabled}"
+                    IsEnabled="{Binding DeployCommandButtonEnabled}"
                     Style="{ThemeResource ImageButtonStyle}">
                 <Image Source="/Assets/Buttons/btn_claim.png"></Image>
             </Button>
@@ -129,11 +147,10 @@
                     Style="{ThemeResource ImageButtonStyle}">
                 <Image Source="/Assets/Buttons/btn_close_normal.png" />
             </Button>
-            <!-- TODO: Only one of the below buttons can be visible, train or fight -->
             <Button HorizontalAlignment="Center" VerticalAlignment="Center" 
                     Width="80" Height="80" Grid.Column="2"
                     Command="{Binding TrainCommand}"
-                    IsEnabled="{Binding CommandButtonEnabled}"
+                    IsEnabled="{Binding TrainCommandButtonEnabled}"
                     Visibility="{Binding TrainCommandVisibility}"
                     Style="{ThemeResource ImageButtonStyle}">
                     <Image Source="/Assets/Buttons/btn_train.png"></Image>
@@ -141,7 +158,7 @@
             <Button HorizontalAlignment="Center" VerticalAlignment="Center" 
                     Width="80" Height="80" Grid.Column="2"
                     Command="{Binding FightCommand}"
-                    IsEnabled="{Binding CommandButtonEnabled}"
+                    IsEnabled="{Binding AttackCommandButtonEnabled}"
                     Visibility="{Binding FightCommandVisibility}"
                     Style="{ThemeResource ImageButtonStyle}">
                 <Image Source="/Assets/Buttons/btn_attack.png"></Image>
@@ -207,6 +224,16 @@
             </StackPanel>
         </Border>
 
+        <Grid x:Name="SelectAttackTeamGrid"
+              Background="{StaticResource PageBackgroundGradient}"
+              Visibility="Collapsed">
+            <Grid.RenderTransform>
+                <CompositeTransform x:Name="SelectAttackTeamGridTransform" TranslateY="200"/>
+            </Grid.RenderTransform>
+            <TextBlock Text="Blaat"/>
+            <Button Style="{StaticResource ButtonSubmit}"/>
+        </Grid>
+        
         <!--Dialog to choose pokemon-->
         <Grid x:Name="SelectPokemonGrid" 
               Background="{StaticResource PageBackgroundGradient}"

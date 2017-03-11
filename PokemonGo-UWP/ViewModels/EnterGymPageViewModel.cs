@@ -52,7 +52,9 @@ namespace PokemonGo_UWP.ViewModels
                 RaisePropertyChanged(() => DeployPokemonCommandVisibility);
                 RaisePropertyChanged(() => TrainCommandVisibility);
                 RaisePropertyChanged(() => FightCommandVisibility);
-                RaisePropertyChanged(() => CommandButtonEnabled);
+                RaisePropertyChanged(() => DeployCommandButtonEnabled);
+                RaisePropertyChanged(() => TrainCommandButtonEnabled);
+                RaisePropertyChanged(() => BattleCommandButtonEnabled);
                 RaisePropertyChanged(() => OutOfRangeMessageBorderVisibility);
             }
             else
@@ -75,7 +77,9 @@ namespace PokemonGo_UWP.ViewModels
                     RaisePropertyChanged(() => DeployPokemonCommandVisibility);
                     RaisePropertyChanged(() => TrainCommandVisibility);
                     RaisePropertyChanged(() => FightCommandVisibility);
-                    RaisePropertyChanged(() => CommandButtonEnabled);
+                    RaisePropertyChanged(() => DeployCommandButtonEnabled);
+                    RaisePropertyChanged(() => TrainCommandButtonEnabled);
+                    RaisePropertyChanged(() => BattleCommandButtonEnabled);
                     RaisePropertyChanged(() => OutOfRangeMessageBorderVisibility);
                     Busy.SetBusy(false);
 
@@ -190,7 +194,19 @@ namespace PokemonGo_UWP.ViewModels
             get
             {
                 if (CurrentGymState == null) return 0;
-                return CurrentGymState.Memberships.Count;
+                if (CurrentGymState.FortData == null) return 0;
+
+                long points = CurrentGymState.FortData.GymPoints;
+                if (points < 2000) return 1;
+                if (points < 4000) return 2;
+                if (points < 8000) return 3;
+                if (points < 12000) return 4;
+                if (points < 16000) return 5;
+                if (points < 20000) return 6;
+                if (points < 30000) return 7;
+                if (points < 40000) return 8;
+                if (points < 50000) return 9;
+                return 10;
             }
         }
 
@@ -201,8 +217,19 @@ namespace PokemonGo_UWP.ViewModels
         {
             get
             {
-                if (CurrentGymState == null) return 0;
-                return CurrentGymState.Memberships.Count * 2000;
+                int level = GymLevel;
+
+                if (level == 1) return 2000;
+                if (level == 2) return 4000;
+                if (level == 3) return 8000;
+                if (level == 4) return 12000;
+                if (level == 5) return 16000;
+                if (level == 6) return 20000;
+                if (level == 7) return 30000;
+                if (level == 8) return 40000;
+                if (level == 9) return 50000;
+                if (level == 10) return 52000;
+                return 0;
             }
         }
 
@@ -233,13 +260,51 @@ namespace PokemonGo_UWP.ViewModels
             get { return CurrentGym?.OwnedByTeam != GameClient.PlayerData.Team ? Visibility.Visible : Visibility.Collapsed; }
         }
 
-        public bool CommandButtonEnabled
+        public bool DeployCommandButtonEnabled
         {
             get
             {
                 var distance = GeoHelper.Distance(CurrentGym?.Geoposition, LocationServiceHelper.Instance.Geoposition.Coordinate.Point);
+                if (distance > GameClient.GameSetting.FortSettings.InteractionRangeMeters) return false;
 
-                return (distance > GameClient.GameSetting.FortSettings.InteractionRangeMeters) ? false : true;
+                if (GameClient.GetDeployedPokemons().Any(a => a.DeployedFortId.Equals(CurrentGym.Id))) return false;
+
+                if (CurrentGym.OwnedByTeam == TeamColor.Neutral) return true;
+
+                if (CurrentGym.OwnedByTeam == GameClient.PlayerData.Team &&
+                    CurrentGymState.Memberships.Count < GymLevel) return true;
+
+                return false;
+            }
+        }
+
+        public bool TrainCommandButtonEnabled
+        {
+            get
+            {
+                var distance = GeoHelper.Distance(CurrentGym?.Geoposition, LocationServiceHelper.Instance.Geoposition.Coordinate.Point);
+                if (distance > GameClient.GameSetting.FortSettings.InteractionRangeMeters) return false;
+
+                bool isDeployed = GameClient.GetDeployedPokemons().Count() > 0 ? GameClient.GetDeployedPokemons().Any(a => a?.DeployedFortId == CurrentGym.Id) : false;
+                if (GymLevel > CurrentGymState.Memberships.Count && !isDeployed) // free slot should be used always but not always we know that...
+                    return true;
+
+                if (CurrentGym.OwnedByTeam != GameClient.PlayerData.Team) return false;
+
+                return true;
+            }
+        }
+
+        public bool BattleCommandButtonEnabled
+        {
+            get
+            {
+                var distance = GeoHelper.Distance(CurrentGym?.Geoposition, LocationServiceHelper.Instance.Geoposition.Coordinate.Point);
+                if (distance > GameClient.GameSetting.FortSettings.InteractionRangeMeters) return false;
+
+                if (CurrentGym.OwnedByTeam == GameClient.PlayerData.Team) return false;
+
+                return true;
             }
         }
 
@@ -363,6 +428,11 @@ namespace PokemonGo_UWP.ViewModels
         public event EventHandler AskForPokemonSelection;
 
         /// <summary>
+        ///     Event fired when the player wants to train in a gym
+        /// </summary>
+        public event EventHandler AskForTrainingAttackTeam;
+
+        /// <summary>
         ///     Event fired when the Selection of a pokemon (to deploy) has been cancelled
         /// </summary>
         public event EventHandler PokemonSelectionCancelled;
@@ -377,6 +447,11 @@ namespace PokemonGo_UWP.ViewModels
         ///     Event fired when the deployment of a Pokemon went wrong
         /// </summary>
         public event EventHandler<FortDeployPokemonResponse.Types.Result> DeployPokemonError;
+
+        /// <summary>
+        ///     Event fired when the train command failed
+        /// </summary>
+        public event EventHandler<string> TrainError;
 
         private DelegateCommand _enterCurrentGym;
 
@@ -492,10 +567,36 @@ namespace PokemonGo_UWP.ViewModels
         public DelegateCommand TrainCommand => _trainCommand ?? (
             _trainCommand = new DelegateCommand(() =>
             {
-                // TODO: Implement Training
-                ConfirmationDialog dialog = new ConfirmationDialog("Training is not implemented yet.");
-                dialog.Show();
+                var defenders = CurrentGymState.Memberships.Select(x => x.PokemonData).ToList();
+
+                if (defenders.Count < 1)
+                    return;
+
+                if (CurrentGymState.FortData.IsInBattle)
+                {
+                    TrainError?.Invoke(this, "This Gym is under attack");
+                    return;
+                }
+
+                AskForTrainingAttackTeam?.Invoke(this, null);
             }));
+
+            //        ServerRequestRunning = true;
+            //        StartGymBattleResponse startGymBattleResponse = await GameClient.StartGymBattle(CurrentGym.Id, CurrentGymState.Memberships[0].TrainingPokemon.Id, new List<ulong> { SelectedPokemon.Id });
+
+            //        switch (startGymBattleResponse.Result)
+            //        {
+            //            case StartGymBattleResponse.Types.Result.Unset:
+            //                break;
+            //            case StartGymBattleResponse.Types.Result.Success:
+            //                break;
+            //        }
+            //    }
+            //    catch (Exception ex)
+            //    {
+
+            //    }
+            //}));
 
         private DelegateCommand _fightCommand;
 
@@ -577,7 +678,7 @@ namespace PokemonGo_UWP.ViewModels
                                 RaisePropertyChanged(() => DeployPokemonCommandVisibility);
                                 RaisePropertyChanged(() => TrainCommandVisibility);
                                 RaisePropertyChanged(() => FightCommandVisibility);
-                                RaisePropertyChanged(() => CommandButtonEnabled);
+                                RaisePropertyChanged(() => DeployCommandButtonEnabled);
                                 RaisePropertyChanged(() => OutOfRangeMessageBorderVisibility);
                                 RaisePropertyChanged(() => GymMemberships);
 

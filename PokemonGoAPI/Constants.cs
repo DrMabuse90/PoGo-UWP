@@ -15,6 +15,7 @@ namespace PokemonGoAPI
 
         public const string LoginUserAgent = "niantic";
         public const string LoginOauthUrl = "https://sso.pokemon.com/sso/oauth2.0/accessToken";
+        //public const string LoginOauthUrl = "https://sso.pokemon.com/sso/oauth2.0/authorize?client_id=mobile-app_pokemon-go&redirect_uri=https%3A%2F%2Fwww.nianticlabs.com%2Fpokemongo%2Ferror&locale=en";
 
         public const string GoogleAuthService =
             "audience:server:client_id:848232511240-7so421jotr2609rmqakceuu1luuq0ptb.apps.googleusercontent.com";

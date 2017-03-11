@@ -43,6 +43,7 @@ using POGOLib.Official.Util.Hash;
 using PokemonGoAPI.Helpers.Hash.PokeHash;
 using PokemonGoAPI.Exceptions;
 using Google.Protobuf.Collections;
+using POGOProtos.Data.Battle;
 
 namespace PokemonGo_UWP.Utils
 {
@@ -1278,6 +1279,16 @@ namespace PokemonGo_UWP.Utils
             return PokemonSettings.First(pokemon => pokemon.PokemonId == pokemonId);
         }
 
+        public static IEnumerable<PokemonData> GetFavoritePokemons()
+        {
+            return PokemonsInventory.Where(i => i.Favorite == 1);
+        }
+
+        public static IEnumerable<PokemonData> GetDeployedPokemons()
+        {
+            return PokemonsInventory.Where(i => !string.IsNullOrEmpty(i.DeployedFortId));
+        }
+
         #endregion
 
         #region Catching
@@ -1486,10 +1497,17 @@ namespace PokemonGo_UWP.Utils
         }
 
         /// The following _client.Fort methods need implementation:
-        /// FortRecallPokemon
-        /// StartGymBattle
-        /// AttackGym
+        /// FortRecallPokemon -> Do we? Pokemons can't be recalled by the player
 
+        public static async Task<StartGymBattleResponse> StartGymBattle(string gymId, ulong defendingPokemonId, IEnumerable<ulong>attackingPokemonIds)
+        {
+            return await _client.Fort.StartGymBattle(gymId, defendingPokemonId, attackingPokemonIds);
+        }
+
+        public static async Task<AttackGymResponse> AttackGym(string fortId, string battleId, List<BattleAction> battleActions, BattleAction lastRetrievedAction)
+        {
+            return await _client.Fort.AttackGym(fortId, battleId, battleActions, lastRetrievedAction);
+        }
         #endregion
 
         #region Items Handling
